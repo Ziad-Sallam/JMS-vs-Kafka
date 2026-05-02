@@ -1,0 +1,84 @@
+=============================================
+ Step 1: Creating topic 'prod-cons-topic'
+=============================================
+
+=============================================
+ PRODUCER TESTS (exponential throughput)
+=============================================
+
+--- Round 1: target 1,000 msg/s ---
+4999 records sent, 999.0 records/sec (0.95 MB/sec), 5.4 ms avg latency, 331.0 ms max latency.
+5006 records sent, 1000.4 records/sec (0.95 MB/sec), 4.0 ms avg latency, 7.0 ms max latency.
+5002 records sent, 1000.2 records/sec (0.95 MB/sec), 3.9 ms avg latency, 9.0 ms max latency.
+5002 records sent, 1000.2 records/sec (0.95 MB/sec), 4.0 ms avg latency, 8.0 ms max latency.
+5001 records sent, 999.8 records/sec (0.95 MB/sec), 3.9 ms avg latency, 9.0 ms max latency.
+5006 records sent, 1000.6 records/sec (0.95 MB/sec), 4.0 ms avg latency, 8.0 ms max latency.
+5000 records sent, 1000.0 records/sec (0.95 MB/sec), 3.8 ms avg latency, 9.0 ms max latency.
+5002 records sent, 1000.0 records/sec (0.95 MB/sec), 3.9 ms avg latency, 7.0 ms max latency.
+5002 records sent, 1000.4 records/sec (0.95 MB/sec), 3.8 ms avg latency, 7.0 ms max latency.
+5004 records sent, 1000.0 records/sec (0.95 MB/sec), 3.8 ms avg latency, 10.0 ms max latency.
+5005 records sent, 1000.2 records/sec (0.95 MB/sec), 3.8 ms avg latency, 7.0 ms max latency.
+5001 records sent, 1000.2 records/sec (0.95 MB/sec), 3.8 ms avg latency, 9.0 ms max latency.
+5002 records sent, 1000.0 records/sec (0.95 MB/sec), 3.8 ms avg latency, 7.0 ms max latency.
+5006 records sent, 1000.4 records/sec (0.95 MB/sec), 3.8 ms avg latency, 9.0 ms max latency.
+5002 records sent, 1000.2 records/sec (0.95 MB/sec), 3.8 ms avg latency, 7.0 ms max latency.
+5005 records sent, 1000.0 records/sec (0.95 MB/sec), 3.8 ms avg latency, 7.0 ms max latency.
+5005 records sent, 1000.2 records/sec (0.95 MB/sec), 3.8 ms avg latency, 9.0 ms max latency.
+5004 records sent, 1000.2 records/sec (0.95 MB/sec), 3.8 ms avg latency, 7.0 ms max latency.
+5007 records sent, 1000.0 records/sec (0.95 MB/sec), 3.8 ms avg latency, 7.0 ms max latency.
+100000 records sent, 999.9 records/sec (0.95 MB/sec), 3.93 ms avg latency, 331.00 ms max latency, 4 ms 50th, 7 ms 95th, 7 ms 99th, 20 ms 99.9th.
+
+--- Round 2: target 10,000 msg/s ---
+49985 records sent, 9997.0 records/sec (9.53 MB/sec), 5.2 ms avg latency, 330.0 ms max latency.
+50000 records sent, 9998.0 records/sec (9.53 MB/sec), 1.4 ms avg latency, 5.0 ms max latency.
+100000 records sent, 9987.0 records/sec (9.52 MB/sec), 3.33 ms avg latency, 330.00 ms max latency, 1 ms 50th, 4 ms 95th, 60 ms 99th, 71 ms 99.9th.
+
+--- Round 3: target 100,000 msg/s ---
+373201 records sent, 74640.2 records/sec (71.18 MB/sec), 374.5 ms avg latency, 440.0 ms max latency.
+416192 records sent, 83238.4 records/sec (79.38 MB/sec), 397.8 ms avg latency, 433.0 ms max latency.
+1000000 records sent, 68610.6 records/sec (65.43 MB/sec), 452.28 ms avg latency, 2251.00 ms max latency, 403 ms 50th, 476 ms 95th, 2230 ms 99th, 2234 ms 99.9th.
+
+--- Round 4: unlimited throughput (hardware ceiling) ---
+429089 records sent, 85817.8 records/sec (81.84 MB/sec), 326.8 ms avg latency, 429.0 ms max latency.
+429328 records sent, 85865.6 records/sec (81.89 MB/sec), 377.8 ms avg latency, 483.0 ms max latency.
+1000000 records sent, 87966.2 records/sec (83.89 MB/sec), 349.11 ms avg latency, 483.00 ms max latency, 357 ms 50th, 439 ms 95th, 451 ms 99th, 482 ms 99.9th.
+
+=============================================
+ CONSUMER TESTS — 3 independent groups
+=============================================
+
+--- Group 1: 'consumer-group-small' — 100K messages, default fetch-size ---
+(simulates a lightweight consumer reading a small batch)
+  -> Resetting offset for group: consumer-group-small
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET     
+consumer-group-small           prod-cons-topic                0          0              
+time, threadId, data.consumed.in.MB, MB.sec, data.consumed.in.nMsg, nMsg.sec, rebalance.time.ms, fetch.time.ms, fetch.MB.sec, fetch.nMsg.sec
+2026-05-02 22:45:30:383, 0, 0.0010, 0.0003, 1, 0.2927, 3379, 37, 0.0258, 27.0270
+
+--- Group 2: 'consumer-group-large' — 1M messages, default fetch-size ---
+(simulates a standard consumer reading the full topic)
+  -> Resetting offset for group: consumer-group-large
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET     
+consumer-group-large           prod-cons-topic                0          0              
+time, threadId, data.consumed.in.MB, MB.sec, data.consumed.in.nMsg, nMsg.sec, rebalance.time.ms, fetch.time.ms, fetch.MB.sec, fetch.nMsg.sec
+2026-05-02 22:45:40:135, 0, 0.0010, 0.0003, 1, 0.2925, 3382, 37, 0.0258, 27.0270
+2026-05-02 22:45:41:136, 0, 330.2774, 329.9465, 346321, 345974.0260, 0, 1001, 329.9465, 345974.0260
+2026-05-02 22:45:42:136, 0, 945.0121, 614.7346, 990917, 644596.0000, 0, 1000, 614.7346, 644596.0000
+
+--- Group 3: 'consumer-group-large-fetch' — 1M messages, 1MB fetch-size ---
+(simulates a high-throughput consumer with larger fetch batches)
+  -> Resetting offset for group: consumer-group-large-fetch
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET     
+consumer-group-large-fetch     prod-cons-topic                0          0              
+time, threadId, data.consumed.in.MB, MB.sec, data.consumed.in.nMsg, nMsg.sec, rebalance.time.ms, fetch.time.ms, fetch.MB.sec, fetch.nMsg.sec
+2026-05-02 22:45:51:389, 0, 0.0010, 0.0003, 1, 0.2931, 3374, 38, 0.0251, 26.3158
+2026-05-02 22:45:52:389, 0, 334.1837, 334.1827, 350417, 350416.0000, 0, 1000, 334.1827, 350416.0000
+
+ All tests complete.
+ Groups used:
+   consumer-group-small  — lightweight (100K msgs, default fetch)
+   consumer-group-large  — standard   (1M msgs,   default fetch)
+   consumer-group-large-fetch  — optimized  (1M msgs,   1MB fetch)
