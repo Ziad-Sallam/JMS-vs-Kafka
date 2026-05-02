@@ -1,0 +1,186 @@
+
+<style>
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+.section-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin: 1.5rem 0 8px; border-bottom: 0.5px solid var(--color-border-tertiary); padding-bottom: 6px; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+.metric { background: var(--color-background-secondary); border-radius: 8px; padding: 10px 12px; }
+.metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric-value { font-size: 19px; font-weight: 500; color: var(--color-text-primary); }
+.metric-sub { font-size: 11px; color: var(--color-text-secondary); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; font-weight: 500; color: var(--color-text-secondary); padding: 5px 8px; border-bottom: 0.5px solid var(--color-border-tertiary); font-size: 11px; }
+td { padding: 5px 8px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); }
+tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+.ok    { background: #EAF3DE; color: #3B6D11; }
+.warn  { background: #FAEEDA; color: #854F0B; }
+.fail  { background: #FCEBEB; color: #A32D2D; }
+.note  { font-size: 12px; color: var(--color-text-secondary); background: var(--color-background-secondary); border-left: 3px solid #378ADD; border-radius: 0 6px 6px 0; padding: 8px 12px; margin-top: 8px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; font-size: 12px; color: var(--color-text-secondary); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; }
+</style>
+
+<h2 class="sr-only">Full Kafka throughput results dashboard: producer breakpoint analysis and three consumer group comparison</h2>
+
+<div class="section-title">Producer — throughput vs latency (breakpoint chart)</div>
+<div class="chart-legend">
+  <span><span class="legend-dot" style="background:#378ADD;"></span>Avg latency (ms)</span>
+  <span><span class="legend-dot" style="background:#1D9E75;"></span>p50 latency (ms)</span>
+  <span><span class="legend-dot" style="background:#D85A30; border: 2px dashed #D85A30; background: transparent;"></span>p99 latency (ms)</span>
+</div>
+<div style="position: relative; width: 100%; height: 260px;">
+  <canvas id="producerChart" role="img" aria-label="Line chart showing Kafka producer latency at 1K, 10K, 100K and unlimited msg/s. Latency stays low until 100K where it spikes.">Avg latency: 3.93ms at 1K, 3.33ms at 10K, 452ms at 100K, 349ms at unlimited. p50: 4, 1, 403, 357 ms.</canvas>
+</div>
+
+<div class="section-title">Producer — full results table</div>
+<table>
+  <thead>
+    <tr>
+      <th>Target</th><th>Actual rate</th><th>MB/s</th><th>Avg latency</th><th>Max latency</th><th>p50</th><th>p95</th><th>p99</th><th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1,000 msg/s</td><td>999.9/s</td><td>0.95</td><td>3.93 ms</td><td>331 ms</td><td>4 ms</td><td>7 ms</td><td>7 ms</td>
+      <td><span class="badge ok">Stable</span></td>
+    </tr>
+    <tr>
+      <td>10,000 msg/s</td><td>9,987/s</td><td>9.52</td><td>3.33 ms</td><td>330 ms</td><td>1 ms</td><td>4 ms</td><td>60 ms</td>
+      <td><span class="badge ok">Stable</span></td>
+    </tr>
+    <tr>
+      <td>100,000 msg/s</td><td>68,610/s</td><td>65.43</td><td>452 ms</td><td>2,251 ms</td><td>403 ms</td><td>476 ms</td><td>2,230 ms</td>
+      <td><span class="badge fail">Saturated</span></td>
+    </tr>
+    <tr>
+      <td>Unlimited (−1)</td><td>87,966/s</td><td>83.89</td><td>349 ms</td><td>483 ms</td><td>357 ms</td><td>439 ms</td><td>451 ms</td>
+      <td><span class="badge warn">Ceiling</span></td>
+    </tr>
+  </tbody>
+</table>
+<div class="note">Breakpoint: between 10K and 100K msg/s. Hardware ceiling confirmed at ~88K msg/s. The 100K run shows p99 spiking to 2,230 ms — producer was queuing internally, unable to keep up. Unlimited run is cleaner (483 ms max) because Kafka batches optimally without a rate governor forcing unnatural pacing.</div>
+
+<div class="section-title">Consumer — 3 group comparison</div>
+<table>
+  <thead>
+    <tr>
+      <th>Group</th><th>Messages</th><th>Fetch-size</th><th>Peak msg/s</th><th>Peak MB/s</th><th>Rebalance ms</th><th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>consumer-group-small</td><td>100K</td><td>default</td><td style="color:var(--color-text-secondary); font-style:italic;">~0.29/s</td><td style="color:var(--color-text-secondary); font-style:italic;">~0.0003</td><td>3,379</td>
+      <td><span class="badge fail">Race condition</span></td>
+    </tr>
+    <tr>
+      <td>consumer-group-large</td><td>1M</td><td>default</td><td>644,596/s</td><td>614.7</td><td>3,382</td>
+      <td><span class="badge ok">Success</span></td>
+    </tr>
+    <tr>
+      <td>consumer-group-large-fetch</td><td>1M</td><td>1 MB</td><td>350,416/s</td><td>334.2</td><td>3,374</td>
+      <td><span class="badge warn">Partial data</span></td>
+    </tr>
+  </tbody>
+</table>
+<div class="note">Group 1 (small) hit the same race condition as before — 100K messages consumed in 37ms fetch window but rebalance took 3.3s and the tool only saw 1 message. Groups 2 and 3 both succeeded. Interestingly, the 1MB fetch-size group was slower (350K vs 644K msg/s) — it only completed 2 reporting intervals, suggesting it was still reading when the tool exited, not that larger fetches are slower.</div>
+
+<div class="section-title">Key numbers for the lab report</div>
+<div class="metric-grid">
+  <div class="metric">
+    <div class="metric-label">Producer stable ceiling</div>
+    <div class="metric-value">~10K</div>
+    <div class="metric-sub">msg/s, sub-5ms p50</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Producer hardware ceiling</div>
+    <div class="metric-value">~88K</div>
+    <div class="metric-sub">msg/s (83.9 MB/s)</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Consumer peak rate</div>
+    <div class="metric-value">~645K</div>
+    <div class="metric-sub">msg/s (615 MB/s)</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Consumer / producer ratio</div>
+    <div class="metric-value">~7×</div>
+    <div class="metric-sub">faster to read than write</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Latency at breakpoint</div>
+    <div class="metric-value">p99: 2.2s</div>
+    <div class="metric-sub">at 100K msg/s target</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Latency at ceiling</div>
+    <div class="metric-value">p50: 357ms</div>
+    <div class="metric-sub">at unlimited throughput</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+new Chart(document.getElementById('producerChart'), {
+  type: 'line',
+  data: {
+    labels: ['1K msg/s', '10K msg/s', '100K msg/s', 'Unlimited'],
+    datasets: [
+      {
+        label: 'Avg latency (ms)',
+        data: [3.93, 3.33, 452.28, 349.11],
+        borderColor: '#378ADD',
+        backgroundColor: '#378ADD',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointStyle: 'circle',
+        tension: 0.3
+      },
+      {
+        label: 'p50 latency (ms)',
+        data: [4, 1, 403, 357],
+        borderColor: '#1D9E75',
+        backgroundColor: '#1D9E75',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointStyle: 'rect',
+        tension: 0.3
+      },
+      {
+        label: 'p99 latency (ms)',
+        data: [7, 60, 2230, 451],
+        borderColor: '#D85A30',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        borderDash: [5, 4],
+        pointRadius: 4,
+        pointStyle: 'triangle',
+        tension: 0.3
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + ' ms'
+        }
+      }
+    },
+    scales: {
+      y: {
+        type: 'logarithmic',
+        title: { display: true, text: 'Latency (ms, log scale)', font: { size: 11 }, color: '#888780' },
+        ticks: { color: '#888780', font: { size: 11 }, callback: v => v + 'ms' },
+        grid: { color: 'rgba(136,135,128,0.15)' }
+      },
+      x: {
+        ticks: { color: '#888780', font: { size: 11 }, autoSkip: false },
+        grid: { color: 'rgba(136,135,128,0.15)' }
+      }
+    }
+  }
+});
+</script>
