@@ -44,7 +44,7 @@ echo "============================================="
 
 echo ""
 echo "--- Round 1: target 1,000 msg/s ---"
-bin/kafka-producer-perf-test.sh \
+/home/ziad-sallam/Downloads/kafka_2.13-4.2.0/bin/kafka-producer-perf-test.sh \
   --topic $TOPIC \
   --num-records 100000 \
   --record-size $RECORD_SIZE \
@@ -53,7 +53,7 @@ bin/kafka-producer-perf-test.sh \
 
 echo ""
 echo "--- Round 2: target 10,000 msg/s ---"
-bin/kafka-producer-perf-test.sh \
+/home/ziad-sallam/Downloads/kafka_2.13-4.2.0/bin/kafka-producer-perf-test.sh \
   --topic $TOPIC \
   --num-records 100000 \
   --record-size $RECORD_SIZE \
@@ -62,18 +62,18 @@ bin/kafka-producer-perf-test.sh \
 
 echo ""
 echo "--- Round 3: target 100,000 msg/s ---"
-bin/kafka-producer-perf-test.sh \
+/home/ziad-sallam/Downloads/kafka_2.13-4.2.0/bin/kafka-producer-perf-test.sh \
   --topic $TOPIC \
   --num-records 1000000 \
   --record-size $RECORD_SIZE \
-  --throughput 100000 \
+  --throughput 200000 \
   --producer-props bootstrap.servers=$BROKER
 
 echo ""
 echo "--- Round 4: unlimited throughput (hardware ceiling) ---"
-bin/kafka-producer-perf-test.sh \
+/home/ziad-sallam/Downloads/kafka_2.13-4.2.0/bin/kafka-producer-perf-test.sh \
   --topic $TOPIC \
-  --num-records 1000000 \
+  --num-records 10000000 \
   --record-size $RECORD_SIZE \
   --throughput -1 \
   --producer-props bootstrap.servers=$BROKER
@@ -87,7 +87,7 @@ echo ""
 echo "--- Group 1: '$GROUP_1' — 100K messages, default fetch-size ---"
 echo "(simulates a lightweight consumer reading a small batch)"
 reset_offset $GROUP_1
-bin/kafka-consumer-perf-test.sh \
+/home/ziad-sallam/Downloads/kafka_2.13-4.2.0/bin/kafka-consumer-perf-test.sh \
   --bootstrap-server $BROKER \
   --topic $TOPIC \
   --messages 100000 \
@@ -99,7 +99,7 @@ echo ""
 echo "--- Group 2: '$GROUP_2' — 1M messages, default fetch-size ---"
 echo "(simulates a standard consumer reading the full topic)"
 reset_offset $GROUP_2
-bin/kafka-consumer-perf-test.sh \
+/home/ziad-sallam/Downloads/kafka_2.13-4.2.0/bin/kafka-consumer-perf-test.sh \
   --bootstrap-server $BROKER \
   --topic $TOPIC \
   --messages 1000000 \
@@ -111,7 +111,7 @@ echo ""
 echo "--- Group 3: '$GROUP_3' — 1M messages, 1MB fetch-size ---"
 echo "(simulates a high-throughput consumer with larger fetch batches)"
 reset_offset $GROUP_3
-bin/kafka-consumer-perf-test.sh \
+/home/ziad-sallam/Downloads/kafka_2.13-4.2.0/bin/kafka-consumer-perf-test.sh \
   --bootstrap-server $BROKER \
   --topic $TOPIC \
   --messages 1000000 \

@@ -132,6 +132,8 @@ public class KafkaProducerBenchmarkReal {
 
         int failed = errors.get();
         double actualRate = (rate - failed) / (durationMs / 1000.0);
+        System.out.println("\nnumber of messages sent: " + rate);
+        System.out.println("number of messages failed: " + failed);
 
         System.out.printf("   duration: %d ms | failed: %d | actual: %.2f msg/s%n",
                 durationMs, failed, actualRate);
