@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka &amp; JMS Benchmark Report</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --bg2: #111318;
+    --bg3: #181b22;
+    --bg4: #1e2229;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --muted2: #9ca3af;
+    --accent: #00e5a0;
+    --accent2: #0077ff;
+    --accent3: #ff6b35;
+    --accent4: #a78bfa;
+    --ok: #00e5a0;
+    --warn: #f59e0b;
+    --fail: #ef4444;
+    --ok-bg: rgba(0,229,160,0.08);
+    --warn-bg: rgba(245,158,11,0.08);
+    --fail-bg: rgba(239,68,68,0.08);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    padding: 4rem 3rem 3rem;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 80% at 90% 20%, rgba(0,229,160,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 10% 80%, rgba(0,119,255,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: .75rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -.03em;
+    line-height: 1.05;
+    color: #fff;
+  }
+  h1 span { color: var(--accent); }
+  .header-meta {
+    margin-top: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .header-meta span { display: flex; align-items: center; gap: .4rem; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
+
+  /* ── LAYOUT ── */
+  main { max-width: 1280px; margin: 0 auto; padding: 3rem; }
+
+  /* ── SECTION HEADER ── */
+  .sec-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 3rem 0 1.5rem;
+  }
+  .sec-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: .1em;
+  }
+  .sec-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -.02em;
+  }
+  .sec-divider { flex: 1; height: 1px; background: var(--border); }
+
+  /* ── METRIC CARDS ── */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .metric-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s, transform .2s;
+  }
+  .metric-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+  .metric-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent-color, var(--accent));
+  }
+  .metric-label { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: .5rem; font-family: 'JetBrains Mono', monospace; }
+  .metric-value { font-size: 1.75rem; font-weight: 800; color: #fff; letter-spacing: -.04em; line-height: 1; }
+  .metric-sub { font-size: 11px; color: var(--muted2); margin-top: .3rem; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* ── TABLES ── */
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg3); }
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .badge-ok    { background: var(--ok-bg);   color: var(--ok);   border: 1px solid rgba(0,229,160,.2); }
+  .badge-warn  { background: var(--warn-bg); color: var(--warn); border: 1px solid rgba(245,158,11,.2); }
+  .badge-fail  { background: var(--fail-bg); color: var(--fail); border: 1px solid rgba(239,68,68,.2); }
+
+  /* ── NOTE ── */
+  .note {
+    font-size: 12.5px;
+    color: var(--muted2);
+    background: var(--bg3);
+    border-left: 2px solid var(--accent2);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    margin-top: 1rem;
+    line-height: 1.7;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── CHART WRAPPERS ── */
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    background: var(--bg3);
+    border-radius: 10px;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  .chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    color: var(--muted2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .ld { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+  /* ── TWO COLUMN ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── CODE BLOCK ── */
+  .code-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--muted2);
+    overflow-x: auto;
+    line-height: 1.8;
+    white-space: pre;
+  }
+  .code-block .kw  { color: var(--accent4); }
+  .code-block .val { color: var(--accent); }
+  .code-block .cmt { color: #4b5563; font-style: italic; }
+  .code-block .str { color: #fbbf24; }
+
+  /* ── RAW OUTPUT ── */
+  .raw-output {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #6b7280;
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .raw-output .hl { color: var(--accent); }
+  .raw-output .hl2 { color: var(--accent2); }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 4px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .tab-btn.active { background: rgba(0,229,160,0.1); border-color: rgba(0,229,160,0.3); color: var(--accent); }
+  .tab-btn:hover:not(.active) { background: var(--bg3); color: var(--text); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── PROGRESS BAR ── */
+  .prog-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .prog-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted2); width: 80px; flex-shrink: 0; }
+  .prog-bar-bg { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .prog-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 1s ease; }
+  .prog-val { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text); width: 70px; text-align: right; flex-shrink: 0; }
+
+  /* ── HIGHLIGHT ROW ── */
+  tr.highlight td { color: #fff; background: rgba(0,229,160,0.05); }
+
+  /* ── FOOTER ── */
+  footer {
+    margin-top: 4rem;
+    padding: 2rem 3rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* animations */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+  .card, .chart-wrap, .metric-card { animation: fadeUp .4s ease both; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-eyebrow">▶ Lab 4 — Distributed Systems</div>
+  <h1>Kafka <span>Benchmark</span><br>Report</h1>
+  <div class="header-meta">
+    <span><span class="dot"></span>2026-05-04</span>
+    <span><span class="dot"></span>Kafka 2.13-4.1.1 / 4.2.0</span>
+    <span><span class="dot"></span>localhost:9092</span>
+    <span><span class="dot"></span>1 partition · RF=1</span>
+    <span><span class="dot"></span>1 KB message payload</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 0 — KEY NUMBERS
+  ══════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-num">00</span>
+    <span class="sec-title">Key Numbers</span>
+    <div class="sec-divider"></div>
+  </div>
+  <div class="metric-grid">
+    <div class="metric-card" style="--accent-color: var(--accent)">
+      <div class="metric-label">Stable producer ceiling</div>
+      <div class="metric-value">10K</div>
+      <div class="metric-sub">msg/s · sub-5ms p50</div>
+    </div>
+    <div class="metric-card" style="--accent-color: var(--accent2)">
+      <div class="metric-label">Hardware ceiling</div>
+      <div class="metric-value">173K</div>
+      <div class="metric-sub">msg/s · 165 MB/s</div>
+    </div>
+    <div class="metric-card" style="--accent-color: var(--accent)">
+      <div class="metric-label">Consumer peak (perf tool)</div>
+      <div class="metric-value">645K</div>
+      <div class="metric-sub">msg/s · 615 MB/s</div>
+    </div>
+    <div class="metric-card" style="--accent-color: var(--accent4)">
+      <div class="metric-label">Consumer benchmark final</div>
+      <div class="metric-value">204K</div>
+      <div class="metric-sub">msg/s after JIT warmup</div>
+    </div>
+    <div class="metric-card" style="--accent-color: var(--accent3)">
+      <div class="metric-label">Response time — producer</div>
+      <div class="metric-value">79 ms</div>
+      <div class="metric-sub">median / 1K msgs (acks=all)</div>
+    </div>
+    <div class="metric-card" style="--accent-color: var(--accent)">
+      <div class="metric-label">Response time — consumer</div>
+      <div class="metric-value">2 ms</div>
+      <div class="metric-sub">median / 1K msgs</div>
+    </div>
+    <div class="metric-card" style="--accent-color: var(--accent3)">
+      <div class="metric-label">p99 at breakpoint</div>
+      <div class="metric-value">808 ms</div>
+      <div class="metric-sub">at 100K msg/s target</div>
+    </div>
+    <div class="metric-card" style="--accent-color: var(--accent2)">
+      <div class="metric-label">E2E median latency</div>
+      <div class="metric-value">2,015 ms</div>
+      <div class="metric-sub">async test (harness artifact)</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 1 — PRODUCER THROUGHPUT
+  ══════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-num">01</span>
+    <span class="sec-title">Producer Throughput Test (kafka-producer-perf-test)</span>
+    <div class="sec-divider"></div>
+  </div>
+
+  <div class="chart-legend">
+    <span><span class="ld" style="background:#00e5a0"></span>Avg latency (ms)</span>
+    <span><span class="ld" style="background:#0077ff"></span>p50 (ms)</span>
+    <span><span class="ld" style="background:#ff6b35;opacity:.9"></span>p99 (ms) — dashed</span>
+  </div>
+  <div class="chart-wrap" style="height:280px">
+    <canvas id="cProdThroughput" role="img" aria-label="Producer latency at four throughput tiers. Latency is sub-10ms at 1K and 10K, spikes at 100K, and drops again at unlimited.">Avg latency: 3.93ms, 3.55ms, 203.9ms, 24.6ms. p99: 8ms, 75ms, 808ms, 342ms.</canvas>
+  </div>
+
+  <div class="card" style="margin-top:0">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Round</th><th>Target</th><th>Actual rate</th><th>MB/s</th>
+            <th>Avg lat</th><th>Max lat</th><th>p50</th><th>p95</th><th>p99</th><th>p99.9</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="highlight">
+            <td>1</td><td>1,000 msg/s</td><td>999.9/s</td><td>0.95</td>
+            <td>3.45 ms</td><td>476 ms</td><td>3 ms</td><td>6 ms</td><td>8 ms</td><td>23 ms</td>
+            <td><span class="badge badge-ok">Stable</span></td>
+          </tr>
+          <tr class="highlight">
+            <td>2</td><td>10,000 msg/s</td><td>9,993/s</td><td>9.53</td>
+            <td>3.55 ms</td><td>332 ms</td><td>1 ms</td><td>11 ms</td><td>75 ms</td><td>85 ms</td>
+            <td><span class="badge badge-ok">Stable</span></td>
+          </tr>
+          <tr>
+            <td>3</td><td>100,000 msg/s</td><td>107,330/s</td><td>102.4</td>
+            <td>203.9 ms</td><td>881 ms</td><td>194 ms</td><td>340 ms</td><td>808 ms</td><td>879 ms</td>
+            <td><span class="badge badge-warn">Saturated</span></td>
+          </tr>
+          <tr>
+            <td>4</td><td>Unlimited</td><td>172,640/s</td><td>164.6</td>
+            <td>24.6 ms</td><td>467 ms</td><td>1 ms</td><td>150 ms</td><td>342 ms</td><td>446 ms</td>
+            <td><span class="badge badge-warn">Ceiling</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">Breakpoint between 10K → 100K msg/s. Hardware ceiling ~173K msg/s (unlimited run). Round 3 (100K target) forces unnatural pacing — the rate limiter queues messages internally, inflating p99 to 808ms. Round 4 lets Kafka batch optimally, explaining the lower average latency at higher actual throughput.</div>
+  </div>
+
+  <!-- Raw output tabs -->
+  <div class="card">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:.75rem;letter-spacing:.08em;text-transform:uppercase">Raw output — latest run</div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('raw',this,'r1')">Round 1 · 1K</button>
+      <button class="tab-btn" onclick="switchTab('raw',this,'r2')">Round 2 · 10K</button>
+      <button class="tab-btn" onclick="switchTab('raw',this,'r3')">Round 3 · 100K</button>
+      <button class="tab-btn" onclick="switchTab('raw',this,'r4')">Round 4 · Unlimited</button>
+    </div>
+    <div class="tab-panel active" id="raw-r1">
+<div class="raw-output">--- Round 1: target 1,000 msg/s ---
+4999 records sent, 998.6 records/sec (0.95 MB/sec), 5.7 ms avg latency, 476.0 ms max latency.
+5007 records sent, 1001.0 records/sec (0.95 MB/sec), 4.5 ms avg latency, 30.0 ms max latency.
+5001 records sent, 1000.0 records/sec (0.95 MB/sec), 3.3 ms avg latency, 8.0 ms max latency.
+5005 records sent, 1000.2 records/sec (0.95 MB/sec), 3.3 ms avg latency, 10.0 ms max latency.
+4999 records sent, 999.8 records/sec (0.95 MB/sec), 3.3 ms avg latency, 8.0 ms max latency.
+5003 records sent, 1000.0 records/sec (0.95 MB/sec), 3.4 ms avg latency, 13.0 ms max latency.
+5004 records sent, 1000.2 records/sec (0.95 MB/sec), 3.3 ms avg latency, 8.0 ms max latency.
+4999 records sent, 999.8 records/sec (0.95 MB/sec), 3.3 ms avg latency, 12.0 ms max latency.
+5005 records sent, 1000.2 records/sec (0.95 MB/sec), 3.2 ms avg latency, 11.0 ms max latency.
+5003 records sent, 999.8 records/sec (0.95 MB/sec), 3.3 ms avg latency, 7.0 ms max latency.
+5005 records sent, 1000.0 records/sec (0.95 MB/sec), 3.3 ms avg latency, 14.0 ms max latency.
+5004 records sent, 1000.0 records/sec (0.95 MB/sec), 3.3 ms avg latency, 11.0 ms max latency.
+5006 records sent, 1000.2 records/sec (0.95 MB/sec), 3.2 ms avg latency, 12.0 ms max latency.
+5000 records sent, 1000.0 records/sec (0.95 MB/sec), 3.3 ms avg latency, 14.0 ms max latency.
+5000 records sent, 1000.0 records/sec (0.95 MB/sec), 3.2 ms avg latency, 12.0 ms max latency.
+5001 records sent, 1000.2 records/sec (0.95 MB/sec), 3.2 ms avg latency, 10.0 ms max latency.
+5003 records sent, 1000.2 records/sec (0.95 MB/sec), 3.3 ms avg latency, 9.0 ms max latency.
+5004 records sent, 999.8 records/sec (0.95 MB/sec), 3.2 ms avg latency, 10.0 ms max latency.
+5005 records sent, 1000.0 records/sec (0.95 MB/sec), 3.2 ms avg latency, 11.0 ms max latency.
+<span class="hl">100000 records sent, 999.910008 records/sec (0.95 MB/sec), 3.45 ms avg latency, 476.00 ms max latency, 3 ms 50th, 6 ms 95th, 8 ms 99th, 23 ms 99.9th.</span></div>
+    </div>
+    <div class="tab-panel" id="raw-r2">
+<div class="raw-output">--- Round 2: target 10,000 msg/s ---
+49989 records sent, 9997.8 records/sec (9.53 MB/sec), 6.0 ms avg latency, 332.0 ms max latency.
+100000 records sent, 9993.004897 records/sec (9.53 MB/sec), 3.55 ms avg latency, 332.00 ms max latency, 1 ms 50th, 11 ms 95th, 75 ms 99th, 85 ms 99.9th.</div>
+    </div>
+    <div class="tab-panel" id="raw-r3">
+<div class="raw-output">--- Round 3: target 100,000 msg/s ---
+587801 records sent, 117560.2 records/sec (112.11 MB/sec), 198.7 ms avg latency, 367.0 ms max latency.
+<span class="hl">1000000 records sent, 107330.685843 records/sec (102.36 MB/sec), 203.93 ms avg latency, 881.00 ms max latency, 194 ms 50th, 340 ms 95th, 808 ms 99th, 879 ms 99.9th.</span></div>
+    </div>
+    <div class="tab-panel" id="raw-r4">
+<div class="raw-output">--- Round 4: unlimited throughput (hardware ceiling) ---
+453537 records sent,  90707.4 records/sec (86.51 MB/sec),  274.4 ms avg latency, 467.0 ms max latency.
+889328 records sent, 177865.6 records/sec (169.63 MB/sec),  35.1 ms avg latency, 276.0 ms max latency.
+887040 records sent, 177408.0 records/sec (169.19 MB/sec),  14.8 ms avg latency,  92.0 ms max latency.
+915792 records sent, 183158.4 records/sec (174.67 MB/sec),   4.5 ms avg latency,  87.0 ms max latency.
+911536 records sent, 182307.2 records/sec (173.86 MB/sec),   8.0 ms avg latency,  74.0 ms max latency.
+904752 records sent, 180950.4 records/sec (172.57 MB/sec),   9.7 ms avg latency,  96.0 ms max latency.
+927168 records sent, 185433.6 records/sec (176.84 MB/sec),  10.7 ms avg latency, 109.0 ms max latency.
+908096 records sent, 181619.2 records/sec (173.21 MB/sec),  17.6 ms avg latency, 197.0 ms max latency.
+901520 records sent, 180304.0 records/sec (171.95 MB/sec),   7.4 ms avg latency,  91.0 ms max latency.
+865136 records sent, 173027.2 records/sec (165.01 MB/sec),  16.3 ms avg latency, 137.0 ms max latency.
+912912 records sent, 182582.4 records/sec (174.12 MB/sec),   5.6 ms avg latency,  83.0 ms max latency.
+<span class="hl">10000000 records sent, 172640.011049 records/sec (164.64 MB/sec), 24.59 ms avg latency, 467.00 ms max latency, 1 ms 50th, 150 ms 95th, 342 ms 99th, 446 ms 99.9th.</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 2 — RESPONSE TIME
+  ══════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-num">02</span>
+    <span class="sec-title">Response Time Test (KafkaResponseTimeBenchmark)</span>
+    <div class="sec-divider"></div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem">Producer — 1,000 runs × 1,000 messages</div>
+      <div style="font-size:2.5rem;font-weight:800;color:#fff;letter-spacing:-.04em">79 ms</div>
+      <div style="font-size:11px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:.3rem">median response time per 1,000 messages</div>
+      <div style="margin-top:1rem">
+        <div class="prog-row"><span class="prog-label">acks=all</span><div class="prog-bar-bg"><div class="prog-bar" style="width:100%;background:var(--accent3)"></div></div><span class="prog-val">79 ms</span></div>
+      </div>
+      <div class="note" style="margin-top:1rem;border-color:var(--accent3)">Synchronous sends with acks=all — each send waits for broker + all replicas. The 79ms median is the round-trip for 1,000 sequential sends.</div>
+    </div>
+    <div class="card">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem">Consumer — 1,000 runs × 1,000 messages</div>
+      <div style="font-size:2.5rem;font-weight:800;color:var(--accent);letter-spacing:-.04em">2 ms</div>
+      <div style="font-size:11px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:.3rem">median response time per 1,000 messages</div>
+      <div style="margin-top:1rem">
+        <div class="prog-row"><span class="prog-label">poll()</span><div class="prog-bar-bg"><div class="prog-bar" style="width:2.5%;background:var(--accent)"></div></div><span class="prog-val">2 ms</span></div>
+      </div>
+      <div class="note" style="margin-top:1rem">Consumer reads pre-committed data from the page cache. Batch polling is ~40× faster than synchronous produce — no write path, no acks.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem">Full result output</div>
+    <div class="raw-output">Producer: 1000 runs of 1000 messages each
+├─ Median response time per 1000 messages: 79.00 ms
+└─ Total messages sent: 1,000,000
+
+Consumer: 1000 runs of 1000 messages each
+├─ Median response time per 1000 messages: 2.00 ms
+└─ Total messages consumed: 1,000,000
+
+Consumer/Producer ratio: <span class="hl">~40× faster to consume</span></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 3 — END-TO-END LATENCY
+  ══════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-num">03</span>
+    <span class="sec-title">End-to-End Latency (KafkaLatencyTest — async)</span>
+    <div class="sec-divider"></div>
+  </div>
+
+  <div class="metric-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+    <div class="metric-card" style="--accent-color:var(--accent2)">
+      <div class="metric-label">Min latency</div>
+      <div class="metric-value" style="font-size:1.4rem">1,907 ms</div>
+      <div class="metric-sub">single message</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent)">
+      <div class="metric-label">Median latency ← key</div>
+      <div class="metric-value" style="font-size:1.4rem">2,015 ms</div>
+      <div class="metric-sub">10K messages</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent4)">
+      <div class="metric-label">Mean latency</div>
+      <div class="metric-value" style="font-size:1.4rem">2,011 ms</div>
+      <div class="metric-sub">10K messages</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent3)">
+      <div class="metric-label">P99 latency</div>
+      <div class="metric-value" style="font-size:1.4rem">2,143 ms</div>
+      <div class="metric-sub">tail latency</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--fail)">
+      <div class="metric-label">Max latency</div>
+      <div class="metric-value" style="font-size:1.4rem">2,255 ms</div>
+      <div class="metric-sub">worst case</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="chart-wrap" style="height:200px">
+      <canvas id="cLatency" role="img" aria-label="Bar chart of end-to-end latency percentiles. All values cluster between 1907ms and 2255ms.">Min 1907ms, median 2015ms, mean 2011ms, p99 2143ms, max 2255ms.</canvas>
+    </div>
+    <div class="note">The ~2 s floor is a test harness artifact, not Kafka's true latency. The async test sleeps 1 s before first poll, and all 10K messages are produced before the consumer catches up. Every message's receive timestamp is shifted by the full production window.</div>
+    <div class="raw-output" style="margin-top:1rem">
+Total messages tested: 10,000
+Latency Statistics (milliseconds):
+   Min Latency:    <span class="hl">1907.00 ms</span>
+   Median Latency: <span class="hl">2015.00 ms</span>  ← KEY METRIC
+   Mean Latency:   <span class="hl">2010.86 ms</span>
+   P99 Latency:    <span class="hl">2143.00 ms</span>
+   Max Latency:    <span class="hl">2255.00 ms</span></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 4 — PRODUCER BENCHMARK (Java)
+  ══════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-num">04</span>
+    <span class="sec-title">Producer Benchmark (KafkaProducerBenchmark — exponential sweep)</span>
+    <div class="sec-divider"></div>
+  </div>
+
+  <div class="chart-legend">
+    <span><span class="ld" style="background:#0077ff"></span>Actual msg/s</span>
+    <span><span class="ld" style="background:#00e5a0"></span>MB/s (right axis)</span>
+  </div>
+  <div class="chart-wrap" style="height:260px">
+    <canvas id="cProdBench" role="img" aria-label="Bar chart of actual producer throughput at each doubling target from 100 to 6.5M msg/s. Peak around 370K at 1.6M target.">Peaks ~370K msg/s at 1.6M target; declines at 3.3M and 6.6M due to saturation.</canvas>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Target</th><th>Actual msg/s</th><th>MB/s</th><th>Duration</th><th>Failed</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>100 msg/s</td><td>3,333</td><td>3.26</td><td>30 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>200 msg/s</td><td>7,407</td><td>7.24</td><td>27 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>400 msg/s</td><td>44,444</td><td>43.45</td><td>9 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>800 msg/s</td><td>42,105</td><td>41.16</td><td>19 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>1,600 msg/s</td><td>76,190</td><td>74.48</td><td>21 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>3,200 msg/s</td><td>133,333</td><td>130.34</td><td>24 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>6,400 msg/s</td><td>152,381</td><td>148.95</td><td>42 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>12,800 msg/s</td><td>166,234</td><td>162.50</td><td>77 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>25,600 msg/s</td><td>107,113</td><td>104.70</td><td>239 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>51,200 msg/s</td><td>141,047</td><td>137.88</td><td>363 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>102,400 msg/s</td><td>144,633</td><td>141.38</td><td>708 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>204,800 msg/s</td><td>231,151</td><td>225.95</td><td>886 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>409,600 msg/s</td><td>256,000</td><td>250.24</td><td>1,600 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr><td>819,200 msg/s</td><td>286,133</td><td>279.70</td><td>2,863 ms</td><td>0</td><td><span class="badge badge-ok">OK</span></td></tr>
+          <tr class="highlight"><td>1,638,400 msg/s</td><td>369,759</td><td>361.44</td><td>4,431 ms</td><td>0</td><td><span class="badge badge-ok">Peak</span></td></tr>
+          <tr><td>3,276,800 msg/s</td><td>277,648</td><td>271.41</td><td>11,802 ms</td><td>0</td><td><span class="badge badge-warn">Declining</span></td></tr>
+          <tr><td>6,553,600 msg/s</td><td>247,811</td><td>242.24</td><td>26,446 ms</td><td>0</td><td><span class="badge badge-warn">Declining</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">Peak actual throughput was ~370K msg/s at the 1.6M target. Above that, the latch-based coordination and network saturation cause throughput to decline despite larger targets. All runs completed with 0 failures.</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 5 — CONSUMER BENCHMARK (Java)
+  ══════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-num">05</span>
+    <span class="sec-title">Consumer Benchmark (KafkaConsumerBenchmark)</span>
+    <div class="sec-divider"></div>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric-card" style="--accent-color:var(--accent)">
+      <div class="metric-label">Total consumed</div>
+      <div class="metric-value">4.1M</div>
+      <div class="metric-sub">messages</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent2)">
+      <div class="metric-label">Total duration</div>
+      <div class="metric-value">20.1 s</div>
+      <div class="metric-sub">wall-clock</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent)">
+      <div class="metric-label">Final throughput</div>
+      <div class="metric-value">204K</div>
+      <div class="metric-sub">msg/s</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent4)">
+      <div class="metric-label">Starting throughput</div>
+      <div class="metric-value">13K</div>
+      <div class="metric-sub">msg/s (cold)</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap" style="height:260px">
+    <canvas id="cConsBench" role="img" aria-label="Line chart of consumer throughput rising from 13K to 204K msg/s over 4.1M messages. Steady upward trend indicates JVM JIT warmup.">Consumer throughput trends from 13K msg/s at start to 204K msg/s at 4.1M messages.</canvas>
+  </div>
+  <div class="note" style="margin-bottom:1.5rem">Steady throughput ramp is textbook JVM JIT warm-up — once the hot polling loop is compiled to native code, consumption accelerates. FETCH_MIN_BYTES=1MB and MAX_POLL_RECORDS=5000 keep poll round-trips efficient.</div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 6 — CONSUMER GROUPS
+  ══════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-num">06</span>
+    <span class="sec-title">Consumer Group Comparison (throughput_test.sh)</span>
+    <div class="sec-divider"></div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Group</th><th>Messages</th><th>Fetch size</th><th>Peak msg/s</th><th>Peak MB/s</th><th>Rebalance ms</th><th>Fetch ms</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>consumer-group-small</td><td>100K</td><td>default</td>
+            <td style="color:var(--muted);font-style:italic">~0.3/s</td>
+            <td style="color:var(--muted);font-style:italic">~0.0003</td>
+            <td>3,357–3,492</td><td>34</td>
+            <td><span class="badge badge-fail">Race condition</span></td>
+          </tr>
+          <tr class="highlight">
+            <td>consumer-group-large</td><td>1M</td><td>default</td>
+            <td>644,596/s</td><td>614.7</td><td>3,382</td><td>1,000–1,001</td>
+            <td><span class="badge badge-ok">Success</span></td>
+          </tr>
+          <tr>
+            <td>consumer-group-large-fetch</td><td>1M</td><td>1 MB</td>
+            <td>350,416/s</td><td>334.2</td><td>3,374</td><td>1,000–1,001</td>
+            <td><span class="badge badge-warn">Partial read</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">Group 1 consumed the 100K batch in ~37ms but the perf tool only captured 1 message — a race between the consumer and the reporting window. Group 3 appears slower (350K vs 644K msg/s) because it only completed 2 reporting intervals before the tool exited, not because larger fetch batches are slower per se.</div>
+  </div>
+
+  <div class="card">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem">Consumer group-large detailed output</div>
+    <div class="raw-output">time, threadId, data.consumed.in.MB, MB.sec, data.consumed.in.nMsg, nMsg.sec, rebalance.time.ms, fetch.time.ms, fetch.MB.sec, fetch.nMsg.sec
+2026-05-04 01:54:37:086, 0,   0.0010,   0.0003,       1,     0.2915, 3401,   30,   0.0318,    33.3333
+2026-05-04 01:54:38:087, 0, 249.0664, 248.8166,  261165, 260903.0969,    0, 1001, 248.8166, 260903.0969
+<span class="hl">2026-05-04 01:54:39:088, 0, 570.3554, 320.9681,  598061, 336559.4406,    0, 1001, 320.9681, 336559.4406</span>
+<span class="hl2">2026-05-04 01:54:40:088, 0, 866.2539, 295.8984,  908333, 310272.0000,    0, 1000, 295.8984, 310272.0000</span></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 7 — CONFIG
+  ══════════════════════════════════════════ -->
+  <div class="sec-header">
+    <span class="sec-num">07</span>
+    <span class="sec-title">Configuration & Tuning Parameters</span>
+    <div class="sec-divider"></div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem">Producer config</div>
+<div class="code-block"><span class="cmt">// Response time test</span>
+<span class="kw">acks</span>                = <span class="val">"all"</span>     <span class="cmt">// full durability</span>
+<span class="kw">linger.ms</span>           = <span class="val">0</span>        <span class="cmt">// no batching delay</span>
+
+<span class="cmt">// Throughput benchmark</span>
+<span class="kw">acks</span>                = <span class="val">"1"</span>      <span class="cmt">// leader-only ack</span>
+<span class="kw">linger.ms</span>           = <span class="val">5</span>
+<span class="kw">batch.size</span>          = <span class="val">65536</span>   <span class="cmt">// 64 KB</span>
+
+<span class="cmt">// perf test</span>
+<span class="kw">record.size</span>         = <span class="val">1000</span>    <span class="cmt">// 1 KB</span>
+<span class="kw">throughput</span>          = <span class="val">-1</span>      <span class="cmt">// unlimited R4</span></div>
+    </div>
+    <div class="card">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem">Consumer config (KafkaConsumerBenchmark)</div>
+<div class="code-block"><span class="kw">auto.offset.reset</span>   = <span class="val">"earliest"</span>
+<span class="kw">enable.auto.commit</span>  = <span class="val">false</span>
+<span class="kw">fetch.min.bytes</span>     = <span class="val">1048576</span>  <span class="cmt">// 1 MB</span>
+<span class="kw">fetch.max.wait.ms</span>   = <span class="val">500</span>
+<span class="kw">fetch.max.bytes</span>     = <span class="val">52428800</span> <span class="cmt">// 50 MB</span>
+<span class="kw">max.poll.records</span>    = <span class="val">5000</span>
+
+<span class="cmt">// Commit strategy</span>
+<span class="kw">commit.interval</span>     = <span class="val">10,000</span> msgs  <span class="cmt">// async</span>
+<span class="kw">final.commit</span>        = <span class="val">sync</span>    <span class="cmt">// durability</span></div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════
+       SECTION 8 — JMS PERFORMANCE METRICS
+  ══════════════════════════════════════════ -->
+  <div class="sec-header" style="margin-top:4rem">
+    <span class="sec-num" style="background:rgba(167,139,250,0.1);border-color:rgba(167,139,250,0.3);color:var(--accent4)">08</span>
+    <span class="sec-title">JMS Lab 4 Performance Metrics</span>
+    <div class="sec-divider"></div>
+  </div>
+
+  <!-- JMS Key metrics -->
+  <div class="metric-grid">
+    <div class="metric-card" style="--accent-color:var(--accent4)">
+      <div class="metric-label">Producer response time</div>
+      <div class="metric-value">6 ms</div>
+      <div class="metric-sub">median / 1,000 messages</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent4)">
+      <div class="metric-label">Consumer response time</div>
+      <div class="metric-value">6 ms</div>
+      <div class="metric-sub">median / 1,000 messages</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent)">
+      <div class="metric-label">Max tested throughput</div>
+      <div class="metric-value">128K</div>
+      <div class="metric-sub">msg/s · all succeeded</div>
+    </div>
+    <div class="metric-card" style="--accent-color:var(--accent2)">
+      <div class="metric-label">Median E2E latency</div>
+      <div class="metric-value">3.995 ms</div>
+      <div class="metric-sub">10,000 messages</div>
+    </div>
+  </div>
+
+  <!-- Response time comparison JMS vs Kafka -->
+  <div class="two-col">
+    <div class="card">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem">Response time — producer</div>
+      <div style="display:flex;align-items:baseline;gap:.75rem">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--accent4);letter-spacing:-.04em">6 ms</div>
+        <div style="font-size:12px;color:var(--muted2);font-family:'JetBrains Mono',monospace">JMS median</div>
+      </div>
+      <div style="margin-top:1rem">
+        <div class="prog-row">
+          <span class="prog-label">JMS</span>
+          <div class="prog-bar-bg"><div class="prog-bar" style="width:7.6%;background:var(--accent4)"></div></div>
+          <span class="prog-val">6 ms</span>
+        </div>
+        <div class="prog-row">
+          <span class="prog-label">Kafka</span>
+          <div class="prog-bar-bg"><div class="prog-bar" style="width:100%;background:var(--accent3)"></div></div>
+          <span class="prog-val">79 ms</span>
+        </div>
+      </div>
+      <div class="note" style="margin-top:1rem;border-color:var(--accent4)">JMS producer is ~13× faster than Kafka's acks=all synchronous producer — JMS uses a lightweight in-memory broker (ActiveMQ) with no replication overhead.</div>
+    </div>
+    <div class="card">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem">Response time — consumer</div>
+      <div style="display:flex;align-items:baseline;gap:.75rem">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--accent4);letter-spacing:-.04em">6 ms</div>
+        <div style="font-size:12px;color:var(--muted2);font-family:'JetBrains Mono',monospace">JMS median</div>
+      </div>
+      <div style="margin-top:1rem">
+        <div class="prog-row">
+          <span class="prog-label">JMS</span>
+          <div class="prog-bar-bg"><div class="prog-bar" style="width:100%;background:var(--accent4)"></div></div>
+          <span class="prog-val">6 ms</span>
+        </div>
+        <div class="prog-row">
+          <span class="prog-label">Kafka</span>
+          <div class="prog-bar-bg"><div class="prog-bar" style="width:33%;background:var(--accent)"></div></div>
+          <span class="prog-val">2 ms</span>
+        </div>
+      </div>
+      <div class="note" style="margin-top:1rem;border-color:var(--accent4)">Kafka's page-cache batch polling is 3× faster than JMS for consumption. JMS includes message acknowledgment overhead per poll cycle.</div>
+    </div>
+  </div>
+
+  <!-- Throughput chart -->
+  <div class="chart-legend" style="margin-top:1rem">
+    <span><span class="ld" style="background:#a78bfa"></span>JMS producer actual throughput (msg/s)</span>
+    <span><span class="ld" style="background:#00e5a0"></span>JMS consumer actual throughput (msg/s)</span>
+    <span><span class="ld" style="background:#ff6b35;opacity:.8"></span>Time taken (sec, right axis)</span>
+  </div>
+  <div class="chart-wrap" style="height:260px">
+    <canvas id="cJmsThroughput" role="img" aria-label="Grouped bar chart of JMS producer and consumer throughput at 9 rate tiers from 500 to 128000 msg/s. All succeeded with time rising from 0.81s to 1.56s.">JMS producer and consumer both handle all rates from 500 to 128K msg/s successfully. Time rises from 0.81s to 1.56s (producer) and 1.38s (consumer).</canvas>
+  </div>
+
+  <!-- Producer throughput table -->
+  <div class="card">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem">Section 3 — producer throughput (rate-based)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Target rate</th><th>Sent</th><th>Received</th><th>Time (sec)</th><th>Actual msg/s</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>500 msg/s</td><td>500</td><td>500</td><td>0.81</td><td>617</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>1,000 msg/s</td><td>1,000</td><td>1,000</td><td>0.81</td><td>1,234</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>2,000 msg/s</td><td>2,000</td><td>2,000</td><td>0.83</td><td>2,409</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>4,000 msg/s</td><td>4,000</td><td>4,000</td><td>0.85</td><td>4,706</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>8,000 msg/s</td><td>8,000</td><td>8,000</td><td>0.85</td><td>9,411</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>16,000 msg/s</td><td>16,000</td><td>16,000</td><td>0.89</td><td>17,977</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>32,000 msg/s</td><td>32,000</td><td>32,000</td><td>0.98</td><td>32,653</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>64,000 msg/s</td><td>64,000</td><td>64,000</td><td>1.18</td><td>54,237</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr class="highlight"><td>128,000 msg/s</td><td>128,000</td><td>128,000</td><td>1.56</td><td>82,051</td><td><span class="badge badge-ok">YES</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Consumer throughput table -->
+  <div class="card">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem">Section 4 — consumer throughput (rate-based)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Target rate</th><th>Expected</th><th>Received</th><th>Time (sec)</th><th>Actual msg/s</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>500 msg/s</td><td>500</td><td>500</td><td>0.81</td><td>617</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>1,000 msg/s</td><td>1,000</td><td>1,000</td><td>0.81</td><td>1,234</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>2,000 msg/s</td><td>2,000</td><td>2,000</td><td>0.82</td><td>2,439</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>4,000 msg/s</td><td>4,000</td><td>4,000</td><td>0.82</td><td>4,878</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>8,000 msg/s</td><td>8,000</td><td>8,000</td><td>0.83</td><td>9,638</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>16,000 msg/s</td><td>16,000</td><td>16,000</td><td>0.88</td><td>18,181</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>32,000 msg/s</td><td>32,000</td><td>32,000</td><td>0.93</td><td>34,408</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr><td>64,000 msg/s</td><td>64,000</td><td>64,000</td><td>1.11</td><td>57,657</td><td><span class="badge badge-ok">YES</span></td></tr>
+          <tr class="highlight"><td>128,000 msg/s</td><td>128,000</td><td>128,000</td><td>1.38</td><td>92,753</td><td><span class="badge badge-ok">YES</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">All 9 rate tiers succeeded with 0 message loss. The actual throughput consistently exceeds the target rate because the JMS broker processes batches faster than the rate-limiter paces sends — the fixed minimum duration (~0.81s) is broker startup + handshake overhead, not queue saturation.</div>
+  </div>
+
+  <!-- Latency + raw output -->
+  <div class="two-col">
+    <div class="card">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem">Section 5 — median latency</div>
+      <div style="font-size:2.8rem;font-weight:800;letter-spacing:-.04em;color:var(--accent4)">3.995 ms</div>
+      <div style="font-size:11px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:.3rem;margin-bottom:1.5rem">median end-to-end · 10,000 messages</div>
+      <div style="position:relative;height:140px">
+        <canvas id="cJmsLatComp" role="img" aria-label="Bar chart comparing JMS median latency 3.995ms vs Kafka E2E latency 2015ms. JMS is dramatically lower.">JMS: 3.995ms, Kafka E2E async: 2015ms.</canvas>
+      </div>
+      <div class="note" style="margin-top:1rem;border-color:var(--accent4)">JMS at 3.995ms vs Kafka async test at 2,015ms. The Kafka figure is inflated by a 1s harness sleep — true Kafka broker latency is sub-10ms at low rates.</div>
+    </div>
+    <div class="card">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem">Raw output</div>
+<div class="raw-output">=============================================
+ JMS Lab 4 Performance Metrics
+=============================================
+--- 1. Produce Messages Response Time ---
+<span class="hl">median Time to produce 1000 messages: 6 ms</span>
+--- 2. Consumption of Messages Response Time ---
+<span class="hl">median Time to consume 1000 messages: 6 ms</span>
+--- 3. Producer Throughput (Rate-Based) ---
+Rate:   500 msg/sec | Sent:    500 | Received:    500 | Success: YES | Time: 0.81 sec
+Rate:  1000 msg/sec | Sent:   1000 | Received:   1000 | Success: YES | Time: 0.81 sec
+Rate:  2000 msg/sec | Sent:   2000 | Received:   2000 | Success: YES | Time: 0.83 sec
+Rate:  4000 msg/sec | Sent:   4000 | Received:   4000 | Success: YES | Time: 0.85 sec
+Rate:  8000 msg/sec | Sent:   8000 | Received:   8000 | Success: YES | Time: 0.85 sec
+Rate: 16000 msg/sec | Sent:  16000 | Received:  16000 | Success: YES | Time: 0.89 sec
+Rate: 32000 msg/sec | Sent:  32000 | Received:  32000 | Success: YES | Time: 0.98 sec
+Rate: 64000 msg/sec | Sent:  64000 | Received:  64000 | Success: YES | Time: 1.18 sec
+<span class="hl">Rate: 128000 msg/sec | Sent: 128000 | Received: 128000 | Success: YES | Time: 1.56 sec</span>
+--- 4. Consumer Throughput (Rate-Based) ---
+Rate:   500 msg/sec | Expected:    500 | Received:    500 | Success: YES | Time: 0.81 sec
+Rate:  1000 msg/sec | Expected:   1000 | Received:   1000 | Success: YES | Time: 0.81 sec
+Rate:  2000 msg/sec | Expected:   2000 | Received:   2000 | Success: YES | Time: 0.82 sec
+Rate:  4000 msg/sec | Expected:   4000 | Received:   4000 | Success: YES | Time: 0.82 sec
+Rate:  8000 msg/sec | Expected:   8000 | Received:   8000 | Success: YES | Time: 0.83 sec
+Rate: 16000 msg/sec | Expected:  16000 | Received:  16000 | Success: YES | Time: 0.88 sec
+Rate: 32000 msg/sec | Expected:  32000 | Received:  32000 | Success: YES | Time: 0.93 sec
+Rate: 64000 msg/sec | Expected:  64000 | Received:  64000 | Success: YES | Time: 1.11 sec
+<span class="hl">Rate: 128000 msg/sec | Expected: 128000 | Received: 128000 | Success: YES | Time: 1.38 sec</span>
+--- 5. Median Latency ---
+<span class="hl">Median Latency for 10000 messages: 3.995 ms</span></div>
+    </div>
+  </div>
+
+  <!-- JMS vs Kafka comparison table -->
+  <div class="card">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.75rem">JMS vs Kafka — side-by-side comparison</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Metric</th><th>JMS</th><th>Kafka</th><th>Winner</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Producer response time</td><td style="color:var(--accent4)">6 ms</td><td>79 ms</td>
+            <td><span class="badge badge-ok">JMS ~13×</span></td>
+            <td style="color:var(--muted2);font-size:11px">Kafka uses acks=all; JMS is in-memory</td>
+          </tr>
+          <tr>
+            <td>Consumer response time</td><td>6 ms</td><td style="color:var(--accent)">2 ms</td>
+            <td><span class="badge badge-warn">Kafka 3×</span></td>
+            <td style="color:var(--muted2);font-size:11px">Kafka page-cache batch poll wins</td>
+          </tr>
+          <tr>
+            <td>E2E median latency</td><td style="color:var(--accent4)">3.995 ms</td><td>2,015 ms*</td>
+            <td><span class="badge badge-ok">JMS ~504×</span></td>
+            <td style="color:var(--muted2);font-size:11px">*Kafka figure is harness artifact (+1s sleep)</td>
+          </tr>
+          <tr>
+            <td>Max tested throughput</td><td>128K msg/s</td><td style="color:var(--accent)">173K msg/s</td>
+            <td><span class="badge badge-warn">Kafka 1.35×</span></td>
+            <td style="color:var(--muted2);font-size:11px">JMS ceiling not yet found; Kafka hardware-limited</td>
+          </tr>
+          <tr>
+            <td>Consumer peak (perf tool)</td><td>—</td><td style="color:var(--accent)">645K msg/s</td>
+            <td><span class="badge badge-warn">Kafka</span></td>
+            <td style="color:var(--muted2);font-size:11px">Kafka optimized for high-fan-out replay</td>
+          </tr>
+          <tr>
+            <td>Message loss at max rate</td><td style="color:var(--accent4)">0</td><td style="color:var(--accent)">0</td>
+            <td><span class="badge" style="background:rgba(167,139,250,0.1);color:var(--accent4);border:1px solid rgba(167,139,250,0.2)">Tie</span></td>
+            <td style="color:var(--muted2);font-size:11px">Both 100% reliable in tested range</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">JMS excels at low-latency point-to-point delivery. Kafka excels at durable, high-fan-out, replayable streams. The right choice depends on whether you need persistence, replication, and consumer group replay (Kafka) or minimal-overhead transient messaging (JMS).</div>
+  </div>
+
+</main>
+
+<footer>
+  <span>Kafka &amp; JMS Benchmark Report · Lab 4 · CSED DDIA</span>
+  <span>Kafka 2.13-4.x · JMS/ActiveMQ · localhost:9092 · 1 partition · RF=1</span>
+  <span>Generated 2026-05-04</span>
+</footer>
+
+<script>
+function switchTab(group, btn, id) {
+  document.querySelectorAll('#' + group + '-' + btn.closest('.card').querySelector('.tab-btn').parentElement.id.replace(/.*-/,'')).forEach(()=>{});
+  const panels = btn.closest('.card').querySelectorAll('.tab-panel');
+  const btns   = btn.closest('.card').querySelectorAll('.tab-btn');
+  panels.forEach(p => p.classList.remove('active'));
+  btns.forEach(b => b.classList.remove('active'));
+  btn.closest('.card').querySelector('#raw-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+const gridColor = 'rgba(255,255,255,0.07)';
+const tickColor = '#6b7280';
+const axisBase = {
+  ticks: { color: tickColor, font: { size: 11, family: "'JetBrains Mono', monospace" } },
+  grid:  { color: gridColor }
+};
+
+/* Chart 1 — Producer throughput latency */
+new Chart(document.getElementById('cProdThroughput'), {
+  type: 'line',
+  data: {
+    labels: ['1K msg/s', '10K msg/s', '100K msg/s', 'Unlimited'],
+    datasets: [
+      { label: 'Avg latency', data: [3.45, 3.55, 203.9, 24.6],
+        borderColor: '#00e5a0', backgroundColor: '#00e5a0', borderWidth: 2, pointRadius: 5, tension: .3 },
+      { label: 'p50', data: [3, 1, 194, 1],
+        borderColor: '#0077ff', backgroundColor: '#0077ff', borderWidth: 2, pointRadius: 5, pointStyle: 'rect', tension: .3 },
+      { label: 'p99', data: [8, 75, 808, 342],
+        borderColor: '#ff6b35', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 4], pointRadius: 5, pointStyle: 'triangle', tension: .3 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + ' ms' } } },
+    scales: {
+      y: { type: 'logarithmic', ...axisBase, title: { display: true, text: 'Latency ms (log)', font: { size: 11 }, color: tickColor }, ticks: { ...axisBase.ticks, callback: v => v + 'ms' } },
+      x: { ...axisBase, ticks: { ...axisBase.ticks, autoSkip: false } }
+    }
+  }
+});
+
+/* Chart 2 — End-to-end latency percentiles */
+new Chart(document.getElementById('cLatency'), {
+  type: 'bar',
+  data: {
+    labels: ['Min', 'Median', 'Mean', 'P99', 'Max'],
+    datasets: [{ label: 'Latency (ms)', data: [1907, 2015, 2010.86, 2143, 2255],
+      backgroundColor: ['rgba(0,119,255,0.5)','rgba(0,229,160,0.7)','rgba(167,139,250,0.5)','rgba(245,158,11,0.5)','rgba(239,68,68,0.5)'],
+      borderColor:      ['#0077ff','#00e5a0','#a78bfa','#f59e0b','#ef4444'],
+      borderWidth: 1 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { ...axisBase, min: 1800, title: { display: true, text: 'ms', font: { size: 11 }, color: tickColor }, ticks: { ...axisBase.ticks, callback: v => v + 'ms' } },
+      x: { ...axisBase }
+    }
+  }
+});
+
+/* Chart 3 — Producer benchmark sweep */
+const tRates = ['100','200','400','800','1.6K','3.2K','6.4K','12.8K','25.6K','51.2K','102K','205K','410K','819K','1.6M','3.3M','6.6M'];
+const actualMsgs = [3333,7407,44444,42105,76190,133333,152381,166234,107113,141047,144633,231151,256000,286133,369759,277648,247811];
+const actualMB   = [3.26,7.24,43.45,41.16,74.48,130.34,148.95,162.50,104.70,137.88,141.38,225.95,250.24,279.70,361.44,271.41,242.24];
+new Chart(document.getElementById('cProdBench'), {
+  type: 'bar',
+  data: {
+    labels: tRates,
+    datasets: [
+      { label: 'Actual msg/s', data: actualMsgs, backgroundColor: 'rgba(0,119,255,0.55)', borderColor: '#0077ff', borderWidth: 1, yAxisID: 'y' },
+      { label: 'MB/s', data: actualMB, type: 'line', borderColor: '#00e5a0', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 3, yAxisID: 'y2', tension: .35 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ...axisBase, ticks: { ...axisBase.ticks, maxRotation: 45, autoSkip: false } },
+      y: { ...axisBase, title: { display: true, text: 'msg/s', font: { size: 11 }, color: tickColor }, ticks: { ...axisBase.ticks, callback: v => v >= 1000 ? Math.round(v/1000) + 'K' : v } },
+      y2: { position: 'right', ...axisBase, title: { display: true, text: 'MB/s', font: { size: 11 }, color: tickColor }, grid: { display: false }, ticks: { ...axisBase.ticks } }
+    }
+  }
+});
+
+/* Chart JMS-1 — JMS producer & consumer throughput by rate */
+const jmsRates = ['500','1K','2K','4K','8K','16K','32K','64K','128K'];
+const jmsProdTime = [0.81,0.81,0.83,0.85,0.85,0.89,0.98,1.18,1.56];
+const jmsConsTime = [0.81,0.81,0.82,0.82,0.83,0.88,0.93,1.11,1.38];
+const jmsTargets  = [500,1000,2000,4000,8000,16000,32000,64000,128000];
+const jmsProdActual = jmsTargets.map((t,i) => Math.round(t / jmsProdTime[i]));
+const jmsConsActual = jmsTargets.map((t,i) => Math.round(t / jmsConsTime[i]));
+new Chart(document.getElementById('cJmsThroughput'), {
+  type: 'bar',
+  data: {
+    labels: jmsRates,
+    datasets: [
+      { label: 'Producer actual msg/s', data: jmsProdActual, backgroundColor: 'rgba(167,139,250,0.55)', borderColor: '#a78bfa', borderWidth: 1, yAxisID: 'y' },
+      { label: 'Consumer actual msg/s', data: jmsConsActual, backgroundColor: 'rgba(0,229,160,0.45)', borderColor: '#00e5a0', borderWidth: 1, yAxisID: 'y' },
+      { label: 'Producer time (sec)', data: jmsProdTime, type: 'line', borderColor: '#ff6b35', backgroundColor: 'transparent', borderWidth: 2, borderDash: [4,3], pointRadius: 3, yAxisID: 'y2', tension: .35 },
+      { label: 'Consumer time (sec)', data: jmsConsTime, type: 'line', borderColor: '#fbbf24', backgroundColor: 'transparent', borderWidth: 2, borderDash: [4,3], pointRadius: 3, yAxisID: 'y2', tension: .35 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ...axisBase, ticks: { ...axisBase.ticks, autoSkip: false } },
+      y: { ...axisBase, title: { display: true, text: 'actual msg/s', font: { size: 11 }, color: tickColor }, ticks: { ...axisBase.ticks, callback: v => v >= 1000 ? Math.round(v/1000) + 'K' : v } },
+      y2: { position: 'right', ...axisBase, title: { display: true, text: 'time (sec)', font: { size: 11 }, color: tickColor }, grid: { display: false }, ticks: { ...axisBase.ticks } }
+    }
+  }
+});
+
+/* Chart JMS-2 — JMS vs Kafka latency comparison */
+new Chart(document.getElementById('cJmsLatComp'), {
+  type: 'bar',
+  data: {
+    labels: ['JMS median', 'Kafka (perf)', 'Kafka (Java)'],
+    datasets: [{ label: 'Latency (ms)',
+      data: [3.995, 3.45, 2015],
+      backgroundColor: ['rgba(167,139,250,0.6)', 'rgba(0,229,160,0.5)', 'rgba(0,119,255,0.4)'],
+      borderColor: ['#a78bfa','#00e5a0','#0077ff'],
+      borderWidth: 1 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.x.toFixed(3) + ' ms' } } },
+    scales: {
+      x: { ...axisBase, type: 'logarithmic', title: { display: true, text: 'ms (log)', font: { size: 10 }, color: tickColor }, ticks: { ...axisBase.ticks, callback: v => v + 'ms' } },
+      y: { ...axisBase }
+    }
+  }
+});
+
+/* Chart 4 — Consumer benchmark JIT ramp */
+const snapshots = [13266,24484,34174,43247,51362,58781,64996,71054,76114,81710,86168,90515,93325,96321,99612,103580,106694,110294,114079,116194,119433,121781,124714,126674,127920,129795,132516,133007,133871,135605,136311,137108,137998,139790,142357,144144,145842,147126,148555,150533,152745,155022,157410,159415,161069,163004,164959,166864,168447,170189,171887,173884,175240,176990,177748,179278,180985,182277,183192,184861,185908,187201,188381,187882,188772,189017,189959,189731,190173,191287,192734,194100,195530,196859,197662,198543,199593,200218,201339,202373,203665];
+const consLabels = snapshots.map((_,i) => ((i+1)*50000/1e6).toFixed(1) + 'M');
+new Chart(document.getElementById('cConsBench'), {
+  type: 'line',
+  data: {
+    labels: consLabels,
+    datasets: [{ label: 'Consumer msg/s', data: snapshots,
+      borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,0.07)', fill: true,
+      borderWidth: 2, pointRadius: 0, tension: .4 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => Math.round(c.parsed.y).toLocaleString() + ' msg/s' } } },
+    scales: {
+      x: { ...axisBase, ticks: { ...axisBase.ticks, maxTicksLimit: 12 } },
+      y: { ...axisBase, title: { display: true, text: 'msg/s', font: { size: 11 }, color: tickColor }, ticks: { ...axisBase.ticks, callback: v => Math.round(v/1000) + 'K' } }
+    }
+  }
+});
+</script>
+</body>
+</html>
